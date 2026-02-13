@@ -1,10 +1,9 @@
 -- 优化版掉落物堆叠模组
--- 支持自定义配置
+-- 作者: 橙小幸
+-- Q群:1042944194 欢迎饥荒联机交流
 
--- 确保访问全局变量
-GLOBAL = GLOBAL or _G
+GLOBAL.setmetatable(env, { __index = function(t, k) return GLOBAL.rawget(GLOBAL, k) end })
 
--- 从配置中获取参数
 local STACK_INTERVAL = GetModConfigData("STACK_INTERVAL")
 local STACK_RADIUS = GetModConfigData("STACK_RADIUS")
 local START_DELAY = GetModConfigData("START_DELAY")
@@ -14,6 +13,18 @@ local ALLOW_MOB_STACK = GetModConfigData("ALLOW_MOB_STACK")
 local STACK_MODE = GetModConfigData("STACK_MODE")
 local EXCLUDE_TRAPS = GetModConfigData("EXCLUDE_TRAPS")
 local PROTECT_RARE = GetModConfigData("PROTECT_RARE")
+
+local ENABLE_STATISTICS = GetModConfigData("ENABLE_STATISTICS")
+local ENABLE_ACHIEVEMENTS = GetModConfigData("ENABLE_ACHIEVEMENTS")
+local ENABLE_SOUND = GetModConfigData("ENABLE_SOUND")
+local SOUND_TYPE = GetModConfigData("SOUND_TYPE")
+local ENABLE_MAGNET = GetModConfigData("ENABLE_MAGNET")
+local MAGNET_SPEED = GetModConfigData("MAGNET_SPEED")
+local ENABLE_RANGE_INDICATOR = GetModConfigData("ENABLE_RANGE_INDICATOR")
+
+local stack_count = 0
+local total_items_stacked = 0
+local session_stack_count = 0
 
 -- 定义基础资源列表
 local BASIC_RESOURCES = {
@@ -122,11 +133,11 @@ local RARE_ITEMS = {
     "bearger_fur",          -- 熊皮
     "thulecite",           -- 铥矿
     "thulecite_pieces",    -- 铥矿碎片
-    "purebrilliance",      -- 纯粹辉煌
     "purehorror",          -- 纯粹恐惧
     "purelight",           -- 纯粹光芒
     "walrus_tusk",         -- 海象牙
     "malbatross_beak",     -- 邪天翁喙
+    "gears",               -- 齿轮
 }
 
 -- 将基础资源转换为查找表，以便快速检查
@@ -147,25 +158,75 @@ for _, prefab in ipairs(RARE_ITEMS) do
     RARE_ITEMS_LOOKUP[prefab] = true
 end
 
--- 在文件开头添加物品生成时间记录
--- 添加到AddPrefabPostInit之前
+local achievement_milestones = {10, 50, 100, 500, 1000, 5000, 10000}
+local announced_milestones = {}
+
+local function PlayStackSound(player)
+    if not ENABLE_SOUND or not player or not player:IsValid() then return end
+    
+    local sound_map = {
+        pop = "dontstarve/common/destroy_wood",
+        ding = "dontstarve/wilson/pickup_reeds",
+        whoosh = "dontstarve/common/teleportworm/swallow",
+        click = "dontstarve/common/together/packaged"
+    }
+    
+    local sound = sound_map[SOUND_TYPE] or sound_map.pop
+    player.SoundEmitter:PlaySound(sound)
+end
+
+local function MoveItemToTarget(item, target)
+    if not ENABLE_MAGNET or not item or not item:IsValid() or not target or not target:IsValid() then
+        return
+    end
+    
+    local item_pos = item:GetPosition()
+    local target_pos = target:GetPosition()
+    local dx = target_pos.x - item_pos.x
+    local dz = target_pos.z - item_pos.z
+    local dist = math.sqrt(dx * dx + dz * dz)
+    
+    if dist > 0.1 then
+        local speed = MAGNET_SPEED * 0.1
+        local move_x = item_pos.x + (dx / dist) * speed
+        local move_z = item_pos.z + (dz / dist) * speed
+        item.Transform:SetPosition(move_x, 0, move_z)
+    end
+end
+
+local function AnnounceToPlayers(message)
+    for _, player in ipairs(AllPlayers) do
+        if player and player.components.talker then
+            player.components.talker:Say(message)
+        end
+    end
+end
+
+local function CheckAchievements()
+    for _, milestone in ipairs(achievement_milestones) do
+        if stack_count >= milestone and not announced_milestones[milestone] then
+            announced_milestones[milestone] = true
+            AnnounceToPlayers("🏆 堆叠成就达成：" .. milestone .. "次堆叠！")
+        end
+    end
+end
+
 local function RecordSpawnTime(inst)
     if inst.components and inst.components.stackable then
-        inst.spawn_time = GLOBAL.GetTime()
+        inst.spawn_time = GetTime()
     end
 end
 
 AddPrefabPostInit("", RecordSpawnTime)
 
--- 执行堆叠的优化函数
 local function EnhancedStackItems()
-    -- 获取世界实例
-    local world = GLOBAL.TheWorld
+    local world = TheWorld
     if not world then return end
     
-    -- 获取所有玩家
-    local players = GLOBAL.AllPlayers
+    local players = AllPlayers
     if not players or #players == 0 then return end
+    
+    session_stack_count = 0
     
     -- 对每个玩家周围的物品进行堆叠
     for _, player in ipairs(players) do
@@ -173,10 +234,9 @@ local function EnhancedStackItems()
             -- 获取玩家位置
             local x, y, z = player.Transform:GetWorldPosition()
             
-            -- 修改查找条件，明确只查找掉落物
-            local items = GLOBAL.TheSim:FindEntities(x, y, z, STACK_RADIUS, 
-                {"_inventoryitem"}, -- 必须是物品
-                {"INLIMBO", "NOCLICK", "catchable", "fire"} -- 排除这些标签
+            local items = TheSim:FindEntities(x, y, z, STACK_RADIUS, 
+                {"_inventoryitem"}, 
+                {"INLIMBO", "NOCLICK", "catchable", "fire"}
             )
             
             -- 分组
@@ -276,20 +336,53 @@ local function EnhancedStackItems()
                                item.components and item.components.stackable then
                                 
                                 if ENABLE_STACK_DELAY then
-                                    -- 启用延迟堆叠
                                     player:DoTaskInTime(0.1 * (i-2), function()
-                                        -- 再次检查物品是否有效
                                         if target and target:IsValid() and item and item:IsValid() then
+                                            if ENABLE_MAGNET then
+                                                MoveItemToTarget(item, target)
+                                            end
+                                            
                                             if target.components.stackable and 
                                                not target.components.stackable:IsFull() then
+                                                local old_size = target.components.stackable.stacksize
                                                 target.components.stackable:Put(item)
+                                                local new_size = target.components.stackable.stacksize
+                                                
+                                                if new_size > old_size then
+                                                    session_stack_count = session_stack_count + (new_size - old_size)
+                                                    stack_count = stack_count + 1
+                                                    total_items_stacked = total_items_stacked + (new_size - old_size)
+                                                    
+                                                    PlayStackSound(player)
+                                                    
+                                                    if ENABLE_ACHIEVEMENTS then
+                                                        CheckAchievements()
+                                                    end
+                                                end
                                             end
                                         end
                                     end)
                                 else
-                                    -- 直接堆叠
+                                    if ENABLE_MAGNET then
+                                        MoveItemToTarget(item, target)
+                                    end
+                                    
                                     if not target.components.stackable:IsFull() then
+                                        local old_size = target.components.stackable.stacksize
                                         target.components.stackable:Put(item)
+                                        local new_size = target.components.stackable.stacksize
+                                        
+                                        if new_size > old_size then
+                                            session_stack_count = session_stack_count + (new_size - old_size)
+                                            stack_count = stack_count + 1
+                                            total_items_stacked = total_items_stacked + (new_size - old_size)
+                                            
+                                            PlayStackSound(player)
+                                            
+                                            if ENABLE_ACHIEVEMENTS then
+                                                CheckAchievements()
+                                            end
+                                        end
                                     end
                                 end
                             end
@@ -299,19 +392,31 @@ local function EnhancedStackItems()
             end
         end
     end
+    
+    if ENABLE_STATISTICS and session_stack_count > 0 then
+        AnnounceToPlayers(" 本次堆叠了 " .. session_stack_count .. " 个物品！")
+    end
 end
 
--- 延迟启动定时器
 AddSimPostInit(function()
-    -- 使用配置的延迟时间
-    GLOBAL.TheWorld:DoTaskInTime(START_DELAY, function()
-        -- 处理0秒间隔的特殊情况
+    if ENABLE_RANGE_INDICATOR then
+        for _, player in ipairs(AllPlayers) do
+            if player and player:IsValid() then
+                player:DoPeriodicTask(1, function()
+                    if player and player:IsValid() then
+                        local x, y, z = player.Transform:GetWorldPosition()
+                        SpawnPrefab("groundpoundring_fx").Transform:SetPosition(x, 0, z)
+                    end
+                end)
+            end
+        end
+    end
+    
+    TheWorld:DoTaskInTime(START_DELAY, function()
         if STACK_INTERVAL <= 0 then
-            -- 每帧执行一次堆叠
-            GLOBAL.TheWorld:DoPeriodicTask(0, EnhancedStackItems)
+            TheWorld:DoPeriodicTask(0, EnhancedStackItems)
         else
-            -- 使用配置的间隔时间
-            GLOBAL.TheWorld:DoPeriodicTask(STACK_INTERVAL, EnhancedStackItems)
+            TheWorld:DoPeriodicTask(STACK_INTERVAL, EnhancedStackItems)
         end
     end)
 end) 
