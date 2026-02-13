@@ -1,4 +1,4 @@
-local MOD_VERSION = "1.7.0"
+local MOD_VERSION = "2.0.0"
 
 local function GetLanguage()
     return locale ~= nil and locale or "zh"
@@ -23,7 +23,7 @@ server_only_mod = false
 icon_atlas = "modicon.xml"
 icon = "modicon.tex"
 
-server_filter_tags = {"自动堆叠", "Auto Stack", "橙小幸"}
+server_filter_tags = {"自动堆叠掉落物", "Auto_Stack_Drops", "橙小幸"}
 
 local function Title(title)
     return {
