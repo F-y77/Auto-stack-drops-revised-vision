@@ -44,6 +44,20 @@ local ENABLE_AURA = GetModConfigData("ENABLE_AURA")
 local AURA_RANGE = GetModConfigData("AURA_RANGE")
 local ENABLE_LUCKY = GetModConfigData("ENABLE_LUCKY")
 local LUCKY_DURATION = GetModConfigData("LUCKY_DURATION")
+local ENABLE_STACK_LIMIT = GetModConfigData("ENABLE_STACK_LIMIT")
+local STACK_LIMIT = GetModConfigData("STACK_LIMIT")
+local ENABLE_TELEPORT = GetModConfigData("ENABLE_TELEPORT")
+local TELEPORT_THRESHOLD = GetModConfigData("TELEPORT_THRESHOLD")
+local ENABLE_EXP = GetModConfigData("ENABLE_EXP")
+local EXP_AMOUNT = GetModConfigData("EXP_AMOUNT")
+local ENABLE_DURABILITY = GetModConfigData("ENABLE_DURABILITY")
+local REPAIR_AMOUNT = GetModConfigData("REPAIR_AMOUNT")
+local ENABLE_TEMPERATURE = GetModConfigData("ENABLE_TEMPERATURE")
+local TEMPERATURE_EFFECT = GetModConfigData("TEMPERATURE_EFFECT")
+local ENABLE_LIGHT = GetModConfigData("ENABLE_LIGHT")
+local LIGHT_DURATION = GetModConfigData("LIGHT_DURATION")
+local ENABLE_WETNESS = GetModConfigData("ENABLE_WETNESS")
+local ENABLE_FERTILIZER = GetModConfigData("ENABLE_FERTILIZER")
 
 local stack_count = 0
 local total_items_stacked = 0
@@ -481,6 +495,139 @@ local function ApplyLucky(player)
     end
 end
 
+local function TeleportItemToPlayer(player, item)
+    if not ENABLE_TELEPORT or not player or not player:IsValid() or not item or not item:IsValid() then
+        return
+    end
+    
+    if item.components.stackable and item.components.stackable.stacksize >= TELEPORT_THRESHOLD then
+        local x, y, z = player.Transform:GetWorldPosition()
+        item.Transform:SetPosition(x + math.random(-2, 2), 0, z + math.random(-2, 2))
+        
+        local fx = SpawnPrefab("spawn_fx_medium")
+        if fx then
+            fx.Transform:SetPosition(item.Transform:GetWorldPosition())
+        end
+        
+        if player.components.talker then
+            player.components.talker:Say("[传送] 物品已传送")
+        end
+    end
+end
+
+local function GiveExperience(player)
+    if not ENABLE_EXP or not player or not player:IsValid() then return end
+    
+    if player.components.experience then
+        player.components.experience:DoDelta(EXP_AMOUNT)
+        if player.components.talker then
+            player.components.talker:Say("[经验] +" .. EXP_AMOUNT)
+        end
+    elseif player.level then
+        player.level = (player.level or 0) + EXP_AMOUNT
+        if player.components.talker then
+            player.components.talker:Say("[经验] +" .. EXP_AMOUNT)
+        end
+    end
+end
+
+local function RepairEquipment(player)
+    if not ENABLE_DURABILITY or not player or not player:IsValid() then return end
+    
+    if player.components.inventory then
+        local items = player.components.inventory:GetEquips()
+        for _, item in pairs(items) do
+            if item and item.components.finiteuses then
+                local max_uses = item.components.finiteuses.total
+                local repair = max_uses * REPAIR_AMOUNT
+                item.components.finiteuses:Repair(repair)
+            elseif item and item.components.armor then
+                local max_armor = item.components.armor.maxcondition
+                local repair = max_armor * REPAIR_AMOUNT
+                item.components.armor:Repair(repair)
+            end
+        end
+        
+        if player.components.talker and math.random() < 0.3 then
+            player.components.talker:Say("[修复] 装备已修复")
+        end
+    end
+end
+
+local function AdjustTemperature(player)
+    if not ENABLE_TEMPERATURE or not player or not player:IsValid() then return end
+    
+    if player.components.temperature then
+        if TEMPERATURE_EFFECT == "cooling" then
+            player.components.temperature:DoDelta(-5)
+        elseif TEMPERATURE_EFFECT == "warming" then
+            player.components.temperature:DoDelta(5)
+        elseif TEMPERATURE_EFFECT == "normalize" then
+            local current = player.components.temperature:GetCurrent()
+            local target = 35
+            local delta = (target - current) * 0.1
+            player.components.temperature:DoDelta(delta)
+        end
+    end
+end
+
+local function CreateLight(player)
+    if not ENABLE_LIGHT or not player or not player:IsValid() then return end
+    
+    if not player.stack_light or not player.stack_light:IsValid() then
+        player.stack_light = SpawnPrefab("minerhatlight")
+        if player.stack_light then
+            player.stack_light.entity:SetParent(player.entity)
+            player.stack_light.Light:SetRadius(4)
+            player.stack_light.Light:SetIntensity(0.8)
+            player.stack_light.Light:SetFalloff(0.5)
+            player.stack_light.Light:SetColour(255/255, 255/255, 200/255)
+            player.stack_light.Light:Enable(true)
+            
+            player:DoTaskInTime(LIGHT_DURATION, function()
+                if player and player:IsValid() and player.stack_light and player.stack_light:IsValid() then
+                    player.stack_light:Remove()
+                    player.stack_light = nil
+                end
+            end)
+            
+            if player.components.talker then
+                player.components.talker:Say("[光源] 照亮周围")
+            end
+        end
+    end
+end
+
+local function ReduceWetness(player)
+    if not ENABLE_WETNESS or not player or not player:IsValid() then return end
+    
+    if player.components.moisture then
+        player.components.moisture:DoDelta(-5)
+        if player.components.talker and math.random() < 0.2 then
+            player.components.talker:Say("[防潮] 潮湿度降低")
+        end
+    end
+end
+
+local function FertilizeNearby(player)
+    if not ENABLE_FERTILIZER or not player or not player:IsValid() then return end
+    
+    local x, y, z = player.Transform:GetWorldPosition()
+    local plants = TheSim:FindEntities(x, y, z, 10, {"plant"})
+    
+    local fertilized = 0
+    for _, plant in ipairs(plants) do
+        if plant and plant:IsValid() and plant.components.growable then
+            plant.components.growable:DoGrowth()
+            fertilized = fertilized + 1
+        end
+    end
+    
+    if fertilized > 0 and player.components.talker then
+        player.components.talker:Say("[施肥] 施肥" .. fertilized .. "株植物")
+    end
+end
+
 local function AutoPickupItem(player, item)
     if not ENABLE_AUTO_PICKUP or not player or not player:IsValid() or not item or not item:IsValid() then
         return false
@@ -723,6 +870,13 @@ local function EnhancedStackItems()
                                                     GiveShield(player)
                                                     ApplyAura(player)
                                                     ApplyLucky(player)
+                                                    TeleportItemToPlayer(player, target)
+                                                    GiveExperience(player)
+                                                    RepairEquipment(player)
+                                                    AdjustTemperature(player)
+                                                    CreateLight(player)
+                                                    ReduceWetness(player)
+                                                    FertilizeNearby(player)
                                                     
                                                     if math.random() < 0.1 then
                                                         DoEmote(player)
@@ -765,6 +919,13 @@ local function EnhancedStackItems()
                                             GiveShield(player)
                                             ApplyAura(player)
                                             ApplyLucky(player)
+                                            TeleportItemToPlayer(player, target)
+                                            GiveExperience(player)
+                                            RepairEquipment(player)
+                                            AdjustTemperature(player)
+                                            CreateLight(player)
+                                            ReduceWetness(player)
+                                            FertilizeNearby(player)
                                             
                                             if math.random() < 0.1 then
                                                 DoEmote(player)
@@ -792,6 +953,16 @@ local function EnhancedStackItems()
 end
 
 AddSimPostInit(function()
+    if ENABLE_STACK_LIMIT then
+        for k, v in pairs(Prefabs) do
+            AddPrefabPostInit(k, function(inst)
+                if inst.components and inst.components.stackable then
+                    inst.components.stackable.maxsize = STACK_LIMIT
+                end
+            end)
+        end
+    end
+    
     if ENABLE_RANGE_INDICATOR then
         for _, player in ipairs(AllPlayers) do
             if player and player:IsValid() then

@@ -1,4 +1,4 @@
-local MOD_VERSION = "2.2.2"
+local MOD_VERSION = "2.2.9"
 
 local function GetLanguage()
     return locale ~= nil and locale or "zh"
@@ -222,6 +222,51 @@ local config_labels = {
     
     enable_auto_pickup = is_chinese and "启用自动拾取" or "Enable Auto Pickup",
     enable_auto_pickup_hover = is_chinese and "堆叠后自动将物品放入背包" or "Automatically pickup items after stacking",
+    
+    enable_stack_limit = is_chinese and "启用堆叠上限修改" or "Enable Stack Limit Modifier",
+    enable_stack_limit_hover = is_chinese and "修改物品的最大堆叠数量（模组联动）" or "Modify maximum stack size (mod integration)",
+    
+    stack_limit = is_chinese and "堆叠上限" or "Stack Limit",
+    stack_limit_hover = is_chinese and "设置物品的最大堆叠数量" or "Set maximum stack size for items",
+    
+    enable_teleport = is_chinese and "启用堆叠传送" or "Enable Stack Teleport",
+    enable_teleport_hover = is_chinese and "堆叠大量物品时传送到玩家身边" or "Teleport items to player when stacking large amounts",
+    
+    teleport_threshold = is_chinese and "传送阈值" or "Teleport Threshold",
+    teleport_threshold_hover = is_chinese and "堆叠到多少个时触发传送" or "Stack size to trigger teleport",
+    
+    enable_exp = is_chinese and "启用堆叠经验" or "Enable Stack Experience",
+    enable_exp_hover = is_chinese and "堆叠时获得经验值（需要等级模组）" or "Gain experience when stacking (requires level mod)",
+    
+    exp_amount = is_chinese and "经验值" or "Experience Amount",
+    exp_amount_hover = is_chinese and "每次堆叠获得的经验值" or "Experience gained per stack",
+    
+    enable_durability = is_chinese and "启用堆叠修复" or "Enable Stack Repair",
+    enable_durability_hover = is_chinese and "堆叠时修复装备耐久度" or "Repair equipment durability when stacking",
+    
+    repair_amount = is_chinese and "修复量" or "Repair Amount",
+    repair_amount_hover = is_chinese and "每次堆叠修复的耐久度百分比" or "Durability percentage repaired per stack",
+    
+    enable_temperature = is_chinese and "启用堆叠温度调节" or "Enable Stack Temperature",
+    enable_temperature_hover = is_chinese and "堆叠时调节玩家温度" or "Adjust player temperature when stacking",
+    
+    temperature_effect = is_chinese and "温度效果" or "Temperature Effect",
+    temperature_effect_hover = is_chinese and "选择温度调节效果" or "Choose temperature adjustment effect",
+    temp_cooling = is_chinese and "降温" or "Cooling",
+    temp_warming = is_chinese and "升温" or "Warming",
+    temp_normalize = is_chinese and "恒温" or "Normalize",
+    
+    enable_light = is_chinese and "启用堆叠光源" or "Enable Stack Light",
+    enable_light_hover = is_chinese and "堆叠时在玩家周围产生光源" or "Create light source around player when stacking",
+    
+    light_duration = is_chinese and "光源持续时间" or "Light Duration",
+    light_duration_hover = is_chinese and "光源持续多久（秒）" or "How long light lasts (seconds)",
+    
+    enable_wetness = is_chinese and "启用堆叠防潮" or "Enable Stack Dryness",
+    enable_wetness_hover = is_chinese and "堆叠时降低玩家潮湿度" or "Reduce player wetness when stacking",
+    
+    enable_fertilizer = is_chinese and "启用堆叠施肥" or "Enable Stack Fertilizer",
+    enable_fertilizer_hover = is_chinese and "堆叠时自动给附近农作物施肥" or "Automatically fertilize nearby crops when stacking",
     
     pickup_threshold = is_chinese and "拾取阈值" or "Pickup Threshold",
     pickup_threshold_hover = is_chinese and "堆叠到多少个时自动拾取" or "Auto pickup when stack reaches this amount",
@@ -725,6 +770,155 @@ configuration_options = {
         name = "ENABLE_ACHIEVEMENTS",
         label = config_labels.enable_achievements,
         hover = config_labels.enable_achievements_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_STACK_LIMIT",
+        label = config_labels.enable_stack_limit,
+        hover = config_labels.enable_stack_limit_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "STACK_LIMIT",
+        label = config_labels.stack_limit,
+        hover = config_labels.stack_limit_hover,
+        options = {
+            {description = "99", data = 99},
+            {description = "199", data = 199},
+            {description = "499", data = 499},
+            {description = "999", data = 999},
+        },
+        default = 99,
+    },
+    {
+        name = "ENABLE_TELEPORT",
+        label = config_labels.enable_teleport,
+        hover = config_labels.enable_teleport_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "TELEPORT_THRESHOLD",
+        label = config_labels.teleport_threshold,
+        hover = config_labels.teleport_threshold_hover,
+        options = {
+            {description = "50", data = 50},
+            {description = "100", data = 100},
+            {description = "200", data = 200},
+        },
+        default = 100,
+    },
+    {
+        name = "ENABLE_EXP",
+        label = config_labels.enable_exp,
+        hover = config_labels.enable_exp_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "EXP_AMOUNT",
+        label = config_labels.exp_amount,
+        hover = config_labels.exp_amount_hover,
+        options = {
+            {description = "1", data = 1},
+            {description = "5", data = 5},
+            {description = "10", data = 10},
+            {description = "20", data = 20},
+        },
+        default = 5,
+    },
+    {
+        name = "ENABLE_DURABILITY",
+        label = config_labels.enable_durability,
+        hover = config_labels.enable_durability_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "REPAIR_AMOUNT",
+        label = config_labels.repair_amount,
+        hover = config_labels.repair_amount_hover,
+        options = {
+            {description = "1%", data = 0.01},
+            {description = "2%", data = 0.02},
+            {description = "5%", data = 0.05},
+            {description = "10%", data = 0.1},
+        },
+        default = 0.02,
+    },
+    {
+        name = "ENABLE_TEMPERATURE",
+        label = config_labels.enable_temperature,
+        hover = config_labels.enable_temperature_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "TEMPERATURE_EFFECT",
+        label = config_labels.temperature_effect,
+        hover = config_labels.temperature_effect_hover,
+        options = {
+            {description = config_labels.temp_cooling, data = "cooling"},
+            {description = config_labels.temp_warming, data = "warming"},
+            {description = config_labels.temp_normalize, data = "normalize"},
+        },
+        default = "normalize",
+    },
+    {
+        name = "ENABLE_LIGHT",
+        label = config_labels.enable_light,
+        hover = config_labels.enable_light_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "LIGHT_DURATION",
+        label = config_labels.light_duration,
+        hover = config_labels.light_duration_hover,
+        options = {
+            {description = config_labels.seconds(10), data = 10},
+            {description = config_labels.seconds(30), data = 30},
+            {description = config_labels.seconds(60), data = 60},
+        },
+        default = 30,
+    },
+    {
+        name = "ENABLE_WETNESS",
+        label = config_labels.enable_wetness,
+        hover = config_labels.enable_wetness_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_FERTILIZER",
+        label = config_labels.enable_fertilizer,
+        hover = config_labels.enable_fertilizer_hover,
         options = {
             {description = config_labels.enable, data = true},
             {description = config_labels.disable, data = false},
