@@ -1,4 +1,4 @@
-local MOD_VERSION = "2.0.0"
+local MOD_VERSION = "2.2.2"
 
 local function GetLanguage()
     return locale ~= nil and locale or "zh"
@@ -37,6 +37,7 @@ end
 local config_labels = {
     basic_settings = is_chinese and "========== 基础设置 ==========" or "========== Basic Settings ==========",
     stack_mode_title = is_chinese and "========== 堆叠模式 ==========" or "========== Stack Mode ==========",
+    sound_settings = is_chinese and "========== 音效设置 ==========" or "========== Sound Settings ==========",
     special_settings = is_chinese and "========== 特殊设置 ==========" or "========== Special Settings ==========",
     mod_info = is_chinese and "========== 模组信息 ==========" or "========== Mod Info ==========",
     
@@ -63,6 +64,16 @@ local config_labels = {
     
     stack_delay = is_chinese and "延迟堆叠" or "Stack Delay",
     stack_delay_hover = is_chinese and "开启后物品会逐个堆叠，确保特殊效果能正确触发" or "Items will stack one by one to ensure special effects trigger correctly",
+    
+    enable_sound = is_chinese and "启用堆叠音效" or "Enable Stack Sound",
+    enable_sound_hover = is_chinese and "堆叠时播放音效" or "Play sound when stacking",
+    
+    sound_type = is_chinese and "音效类型" or "Sound Type",
+    sound_type_hover = is_chinese and "选择堆叠时播放的音效" or "Choose the sound to play when stacking",
+    sound_pop = is_chinese and "啵" or "Pop",
+    sound_ding = is_chinese and "叮" or "Ding",
+    sound_whoosh = is_chinese and "嗖" or "Whoosh",
+    sound_click = is_chinese and "咔" or "Click",
     
     allow_mob_stack = is_chinese and "允许小型生物堆叠" or "Allow Mob Stacking",
     allow_mob_stack_hover = is_chinese and "是否允许小型生物（如萤火虫等）进行堆叠" or "Whether to allow stacking of creatures (like fireflies)",
@@ -92,7 +103,7 @@ local config_labels = {
     thanks = is_chinese and "感谢您的大力支持！" or "Thank you for your support!",
     
     unstable_features = is_chinese and "========== 不稳定功能 ==========" or "========== Unstable Features ==========",
-    unstable_warning = is_chinese and "⚠️ 以下功能为实验性功能，默认关闭" or "⚠️ Experimental features, disabled by default",
+    unstable_warning = is_chinese and " 以下功能为实验性功能，默认关闭" or " Experimental features, disabled by default",
     
     enable_sound = is_chinese and "启用堆叠音效" or "Enable Stack Sound",
     enable_sound_hover = is_chinese and "堆叠时播放音效" or "Play sound when stacking",
@@ -120,7 +131,79 @@ local config_labels = {
     enable_achievements_hover = is_chinese and "记录堆叠次数并在达到里程碑时播报" or "Track stacking count and announce milestones",
     
     enable_range_indicator = is_chinese and "显示堆叠范围" or "Show Stack Range",
-    enable_range_indicator_hover = is_chinese and "在玩家周围显示堆叠范围光圈" or "Show a circle around player indicating stack range"
+    enable_range_indicator_hover = is_chinese and "在玩家周围显示堆叠范围光圈" or "Show a circle around player indicating stack range",
+    
+    enable_combo = is_chinese and "启用连击系统" or "Enable Combo System",
+    enable_combo_hover = is_chinese and "连续堆叠会显示连击数" or "Show combo count for consecutive stacks",
+    
+    enable_leaderboard = is_chinese and "启用堆叠排行榜" or "Enable Stack Leaderboard",
+    enable_leaderboard_hover = is_chinese and "定期播报堆叠排行榜" or "Periodically announce stack leaderboard",
+    
+    leaderboard_interval = is_chinese and "排行榜播报间隔" or "Leaderboard Interval",
+    leaderboard_interval_hover = is_chinese and "多久播报一次排行榜（分钟）" or "How often to announce leaderboard (minutes)",
+    
+    enable_blessing = is_chinese and "启用堆叠祝福" or "Enable Stack Blessing",
+    enable_blessing_hover = is_chinese and "堆叠时有概率获得临时增益" or "Chance to get temporary buff when stacking",
+    
+    blessing_chance = is_chinese and "祝福概率" or "Blessing Chance",
+    blessing_chance_hover = is_chinese and "获得祝福的概率" or "Chance to receive blessing",
+    
+    blessing_message = is_chinese and "显示祝福消息" or "Show Blessing Message",
+    blessing_message_hover = is_chinese and "获得祝福时是否显示消息" or "Whether to show message when receiving blessing",
+    
+    blessing_message_style = is_chinese and "消息风格" or "Message Style",
+    blessing_message_style_hover = is_chinese and "祝福消息的显示风格" or "Display style of blessing message",
+    message_detailed = is_chinese and "详细" or "Detailed",
+    message_simple = is_chinese and "简洁" or "Simple",
+    
+    blessing_strength = is_chinese and "祝福强度" or "Blessing Strength",
+    blessing_strength_hover = is_chinese and "祝福效果的强度" or "Strength of blessing effects",
+    strength_weak = is_chinese and "弱（10%）" or "Weak (10%)",
+    strength_normal = is_chinese and "正常（20%）" or "Normal (20%)",
+    strength_strong = is_chinese and "强（30%）" or "Strong (30%)",
+    strength_very_strong = is_chinese and "很强（50%）" or "Very Strong (50%)",
+    
+    blessing_duration = is_chinese and "祝福持续时间" or "Blessing Duration",
+    blessing_duration_hover = is_chinese and "祝福效果持续多久（秒）" or "How long blessing effects last (seconds)",
+    
+    blessing_types = is_chinese and "祝福类型" or "Blessing Types",
+    blessing_types_hover = is_chinese and "选择可以获得哪些类型的祝福" or "Choose which types of blessings can be received",
+    types_all = is_chinese and "全部" or "All",
+    types_speed_only = is_chinese and "仅速度" or "Speed Only",
+    types_combat_only = is_chinese and "仅战斗（攻击+防御）" or "Combat Only (Attack+Defense)",
+    types_speed_attack = is_chinese and "速度+攻击" or "Speed+Attack",
+    types_speed_defense = is_chinese and "速度+防御" or "Speed+Defense",
+    
+    enable_fireworks = is_chinese and "启用堆叠烟花" or "Enable Stack Fireworks",
+    enable_fireworks_hover = is_chinese and "达到里程碑时放烟花" or "Launch fireworks when reaching milestones",
+    
+    enable_preview = is_chinese and "启用堆叠预告" or "Enable Stack Preview",
+    enable_preview_hover = is_chinese and "显示附近可堆叠物品数量" or "Show number of stackable items nearby",
+    
+    enable_emote = is_chinese and "启用堆叠表情" or "Enable Stack Emote",
+    enable_emote_hover = is_chinese and "堆叠时玩家做表情动作" or "Player performs emote when stacking",
+    
+    enable_auto_pickup = is_chinese and "启用自动拾取" or "Enable Auto Pickup",
+    enable_auto_pickup_hover = is_chinese and "堆叠后自动将物品放入背包" or "Automatically pickup items after stacking",
+    
+    pickup_threshold = is_chinese and "拾取阈值" or "Pickup Threshold",
+    pickup_threshold_hover = is_chinese and "堆叠到多少个时自动拾取" or "Auto pickup when stack reaches this amount",
+    
+    pickup_rare_only = is_chinese and "仅拾取稀有物品" or "Pickup Rare Items Only",
+    pickup_rare_only_hover = is_chinese and "只自动拾取稀有物品" or "Only auto pickup rare items",
+    
+    pickup_basic_only = is_chinese and "仅拾取基础资源" or "Pickup Basic Resources Only",
+    pickup_basic_only_hover = is_chinese and "只自动拾取基础资源" or "Only auto pickup basic resources",
+    
+    pickup_all = is_chinese and "拾取所有物品" or "Pickup All Items",
+    pickup_all_hover = is_chinese and "自动拾取所有堆叠物品" or "Auto pickup all stacked items",
+    
+    chance_low = is_chinese and "低（5%）" or "Low (5%)",
+    chance_medium = is_chinese and "中（10%）" or "Medium (10%)",
+    chance_high = is_chinese and "高（20%）" or "High (20%)",
+    
+    minutes = function(n) return is_chinese and n.."分钟" or n.." minutes" end,
+    items = function(n) return is_chinese and n.."个" or n.." items" end
 }
 
 configuration_options = {
@@ -208,6 +291,30 @@ configuration_options = {
         default = true,
     },
     Title(""),
+    Title(config_labels.sound_settings),
+    {
+        name = "ENABLE_SOUND",
+        label = config_labels.enable_sound,
+        hover = config_labels.enable_sound_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "SOUND_TYPE",
+        label = config_labels.sound_type,
+        hover = config_labels.sound_type_hover,
+        options = {
+            {description = config_labels.sound_pop, data = "pop"},
+            {description = config_labels.sound_ding, data = "ding"},
+            {description = config_labels.sound_whoosh, data = "whoosh"},
+            {description = config_labels.sound_click, data = "click"},
+        },
+        default = "pop",
+    },
+    Title(""),
     Title(config_labels.special_settings),
     {
         name = "ALLOW_MOB_STACK",
@@ -243,28 +350,6 @@ configuration_options = {
     Title(config_labels.unstable_features),
     Title(config_labels.unstable_warning),
     {
-        name = "ENABLE_SOUND",
-        label = config_labels.enable_sound,
-        hover = config_labels.enable_sound_hover,
-        options = {
-            {description = config_labels.enable, data = true},
-            {description = config_labels.disable, data = false},
-        },
-        default = false,
-    },
-    {
-        name = "SOUND_TYPE",
-        label = config_labels.sound_type,
-        hover = config_labels.sound_type_hover,
-        options = {
-            {description = config_labels.sound_pop, data = "pop"},
-            {description = config_labels.sound_ding, data = "ding"},
-            {description = config_labels.sound_whoosh, data = "whoosh"},
-            {description = config_labels.sound_click, data = "click"},
-        },
-        default = "pop",
-    },
-    {
         name = "ENABLE_MAGNET",
         label = config_labels.enable_magnet,
         hover = config_labels.enable_magnet_hover,
@@ -294,6 +379,180 @@ configuration_options = {
             {description = config_labels.disable, data = false},
         },
         default = false,
+    },
+    {
+        name = "ENABLE_COMBO",
+        label = config_labels.enable_combo,
+        hover = config_labels.enable_combo_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_LEADERBOARD",
+        label = config_labels.enable_leaderboard,
+        hover = config_labels.enable_leaderboard_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "LEADERBOARD_INTERVAL",
+        label = config_labels.leaderboard_interval,
+        hover = config_labels.leaderboard_interval_hover,
+        options = {
+            {description = config_labels.minutes(5), data = 5},
+            {description = config_labels.minutes(10), data = 10},
+            {description = config_labels.minutes(15), data = 15},
+            {description = config_labels.minutes(30), data = 30},
+        },
+        default = 10,
+    },
+    {
+        name = "ENABLE_BLESSING",
+        label = config_labels.enable_blessing,
+        hover = config_labels.enable_blessing_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "BLESSING_CHANCE",
+        label = config_labels.blessing_chance,
+        hover = config_labels.blessing_chance_hover,
+        options = {
+            {description = config_labels.chance_low, data = 0.05},
+            {description = config_labels.chance_medium, data = 0.1},
+            {description = config_labels.chance_high, data = 0.2},
+        },
+        default = 0.1,
+    },
+    {
+        name = "BLESSING_MESSAGE",
+        label = config_labels.blessing_message,
+        hover = config_labels.blessing_message_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = true,
+    },
+    {
+        name = "BLESSING_MESSAGE_STYLE",
+        label = config_labels.blessing_message_style,
+        hover = config_labels.blessing_message_style_hover,
+        options = {
+            {description = config_labels.message_detailed, data = "detailed"},
+            {description = config_labels.message_simple, data = "simple"},
+        },
+        default = "simple",
+    },
+    {
+        name = "BLESSING_STRENGTH",
+        label = config_labels.blessing_strength,
+        hover = config_labels.blessing_strength_hover,
+        options = {
+            {description = config_labels.strength_weak, data = 0.1},
+            {description = config_labels.strength_normal, data = 0.2},
+            {description = config_labels.strength_strong, data = 0.3},
+            {description = config_labels.strength_very_strong, data = 0.5},
+        },
+        default = 0.2,
+    },
+    {
+        name = "BLESSING_DURATION",
+        label = config_labels.blessing_duration,
+        hover = config_labels.blessing_duration_hover,
+        options = {
+            {description = config_labels.seconds(5), data = 5},
+            {description = config_labels.seconds(10), data = 10},
+            {description = config_labels.seconds(15), data = 15},
+            {description = config_labels.seconds(20), data = 20},
+            {description = config_labels.seconds(30), data = 30},
+        },
+        default = 10,
+    },
+    {
+        name = "BLESSING_TYPES",
+        label = config_labels.blessing_types,
+        hover = config_labels.blessing_types_hover,
+        options = {
+            {description = config_labels.types_all, data = "all"},
+            {description = config_labels.types_speed_only, data = "speed"},
+            {description = config_labels.types_combat_only, data = "combat"},
+            {description = config_labels.types_speed_attack, data = "speed_attack"},
+            {description = config_labels.types_speed_defense, data = "speed_defense"},
+        },
+        default = "all",
+    },
+    {
+        name = "ENABLE_FIREWORKS",
+        label = config_labels.enable_fireworks,
+        hover = config_labels.enable_fireworks_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_PREVIEW",
+        label = config_labels.enable_preview,
+        hover = config_labels.enable_preview_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_EMOTE",
+        label = config_labels.enable_emote,
+        hover = config_labels.enable_emote_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "ENABLE_AUTO_PICKUP",
+        label = config_labels.enable_auto_pickup,
+        hover = config_labels.enable_auto_pickup_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "PICKUP_THRESHOLD",
+        label = config_labels.pickup_threshold,
+        hover = config_labels.pickup_threshold_hover,
+        options = {
+            {description = config_labels.items(5), data = 5},
+            {description = config_labels.items(10), data = 10},
+            {description = config_labels.items(20), data = 20},
+            {description = config_labels.items(40), data = 40},
+        },
+        default = 20,
+    },
+    {
+        name = "PICKUP_MODE",
+        label = is_chinese and "拾取模式" or "Pickup Mode",
+        hover = is_chinese and "选择自动拾取哪些物品" or "Choose which items to auto pickup",
+        options = {
+            {description = config_labels.pickup_all, data = "all", hover = config_labels.pickup_all_hover},
+            {description = config_labels.pickup_rare_only, data = "rare", hover = config_labels.pickup_rare_only_hover},
+            {description = config_labels.pickup_basic_only, data = "basic", hover = config_labels.pickup_basic_only_hover},
+        },
+        default = "all",
     },
     {
         name = "ENABLE_STATISTICS",

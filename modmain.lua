@@ -17,10 +17,30 @@ local SOUND_TYPE = GetModConfigData("SOUND_TYPE")
 local ENABLE_MAGNET = GetModConfigData("ENABLE_MAGNET")
 local MAGNET_SPEED = GetModConfigData("MAGNET_SPEED")
 local ENABLE_RANGE_INDICATOR = GetModConfigData("ENABLE_RANGE_INDICATOR")
+local ENABLE_COMBO = GetModConfigData("ENABLE_COMBO")
+local ENABLE_LEADERBOARD = GetModConfigData("ENABLE_LEADERBOARD")
+local LEADERBOARD_INTERVAL = GetModConfigData("LEADERBOARD_INTERVAL")
+local ENABLE_BLESSING = GetModConfigData("ENABLE_BLESSING")
+local BLESSING_CHANCE = GetModConfigData("BLESSING_CHANCE")
+local BLESSING_MESSAGE = GetModConfigData("BLESSING_MESSAGE")
+local BLESSING_MESSAGE_STYLE = GetModConfigData("BLESSING_MESSAGE_STYLE")
+local BLESSING_STRENGTH = GetModConfigData("BLESSING_STRENGTH")
+local BLESSING_DURATION = GetModConfigData("BLESSING_DURATION")
+local BLESSING_TYPES = GetModConfigData("BLESSING_TYPES")
+local ENABLE_FIREWORKS = GetModConfigData("ENABLE_FIREWORKS")
+local ENABLE_PREVIEW = GetModConfigData("ENABLE_PREVIEW")
+local ENABLE_EMOTE = GetModConfigData("ENABLE_EMOTE")
+local ENABLE_AUTO_PICKUP = GetModConfigData("ENABLE_AUTO_PICKUP")
+local PICKUP_THRESHOLD = GetModConfigData("PICKUP_THRESHOLD")
+local PICKUP_MODE = GetModConfigData("PICKUP_MODE")
 
 local stack_count = 0
 local total_items_stacked = 0
 local session_stack_count = 0
+local player_stats = {}
+local combo_count = 0
+local last_stack_time = 0
+local combo_reset_time = 3
 
 local BASIC_RESOURCES = {
     "log",
@@ -145,6 +165,199 @@ end
 local achievement_milestones = {10, 50, 100, 500, 1000, 5000, 10000}
 local announced_milestones = {}
 
+local function GetPlayerStat(player)
+    if not player or not player.userid then return nil end
+    if not player_stats[player.userid] then
+        player_stats[player.userid] = {
+            name = player.name or "Unknown",
+            count = 0
+        }
+    end
+    return player_stats[player.userid]
+end
+
+local function UpdateCombo()
+    local current_time = GetTime()
+    if current_time - last_stack_time > combo_reset_time then
+        combo_count = 0
+    end
+    combo_count = combo_count + 1
+    last_stack_time = current_time
+    
+    if ENABLE_COMBO and combo_count > 1 then
+        AnnounceToPlayers(combo_count .. " 连击！")
+    end
+end
+
+local function GiveBlessing(player)
+    if not ENABLE_BLESSING or not player or not player:IsValid() then return end
+    
+    if math.random() < BLESSING_CHANCE then
+        local available_blessings = {}
+        
+        if BLESSING_TYPES == "all" then
+            available_blessings = {
+                {name = "speed", display = "速度", mult = 1 + BLESSING_STRENGTH},
+                {name = "attack", display = "攻击", mult = 1 + BLESSING_STRENGTH},
+                {name = "defense", display = "防御", mult = 1 - BLESSING_STRENGTH * 0.5}
+            }
+        elseif BLESSING_TYPES == "speed" then
+            available_blessings = {
+                {name = "speed", display = "速度", mult = 1 + BLESSING_STRENGTH}
+            }
+        elseif BLESSING_TYPES == "combat" then
+            available_blessings = {
+                {name = "attack", display = "攻击", mult = 1 + BLESSING_STRENGTH},
+                {name = "defense", display = "防御", mult = 1 - BLESSING_STRENGTH * 0.5}
+            }
+        elseif BLESSING_TYPES == "speed_attack" then
+            available_blessings = {
+                {name = "speed", display = "速度", mult = 1 + BLESSING_STRENGTH},
+                {name = "attack", display = "攻击", mult = 1 + BLESSING_STRENGTH}
+            }
+        elseif BLESSING_TYPES == "speed_defense" then
+            available_blessings = {
+                {name = "speed", display = "速度", mult = 1 + BLESSING_STRENGTH},
+                {name = "defense", display = "防御", mult = 1 - BLESSING_STRENGTH * 0.5}
+            }
+        end
+        
+        if #available_blessings == 0 then return end
+        
+        local blessing = available_blessings[math.random(#available_blessings)]
+        
+        if blessing.name == "speed" and player.components.locomotor then
+            player.components.locomotor:SetExternalSpeedMultiplier(player, "stack_blessing", blessing.mult)
+            player:DoTaskInTime(BLESSING_DURATION, function()
+                if player and player:IsValid() and player.components.locomotor then
+                    player.components.locomotor:RemoveExternalSpeedMultiplier(player, "stack_blessing")
+                end
+            end)
+            
+            if BLESSING_MESSAGE and player.components.talker then
+                if BLESSING_MESSAGE_STYLE == "detailed" then
+                    local percent = math.floor(BLESSING_STRENGTH * 100)
+                    player.components.talker:Say("[祝福] 速度+" .. percent .. "% (" .. BLESSING_DURATION .. "秒)")
+                else
+                    player.components.talker:Say("[速度]")
+                end
+            end
+            
+        elseif blessing.name == "attack" and player.components.combat then
+            player.components.combat.damagemultiplier = (player.components.combat.damagemultiplier or 1) * blessing.mult
+            player:DoTaskInTime(BLESSING_DURATION, function()
+                if player and player:IsValid() and player.components.combat then
+                    player.components.combat.damagemultiplier = (player.components.combat.damagemultiplier or 1) / blessing.mult
+                end
+            end)
+            
+            if BLESSING_MESSAGE and player.components.talker then
+                if BLESSING_MESSAGE_STYLE == "detailed" then
+                    local percent = math.floor(BLESSING_STRENGTH * 100)
+                    player.components.talker:Say("[祝福] 攻击+" .. percent .. "% (" .. BLESSING_DURATION .. "秒)")
+                else
+                    player.components.talker:Say("[攻击]")
+                end
+            end
+            
+        elseif blessing.name == "defense" and player.components.combat then
+            player.components.combat.externaldamagetakenmultipliers:SetModifier(player, blessing.mult, "stack_blessing")
+            player:DoTaskInTime(BLESSING_DURATION, function()
+                if player and player:IsValid() and player.components.combat then
+                    player.components.combat.externaldamagetakenmultipliers:RemoveModifier(player, "stack_blessing")
+                end
+            end)
+            
+            if BLESSING_MESSAGE and player.components.talker then
+                if BLESSING_MESSAGE_STYLE == "detailed" then
+                    local percent = math.floor(BLESSING_STRENGTH * 50)
+                    player.components.talker:Say("[祝福] 防御+" .. percent .. "% (" .. BLESSING_DURATION .. "秒)")
+                else
+                    player.components.talker:Say("[防御]")
+                end
+            end
+        end
+    end
+end
+
+local function LaunchFireworks(player)
+    if not ENABLE_FIREWORKS or not player or not player:IsValid() then return end
+    
+    local x, y, z = player.Transform:GetWorldPosition()
+    for i = 1, 3 do
+        player:DoTaskInTime(i * 0.3, function()
+            if player and player:IsValid() then
+                local fx = SpawnPrefab("firework_fx")
+                if fx then
+                    fx.Transform:SetPosition(x + math.random(-3, 3), 0, z + math.random(-3, 3))
+                end
+            end
+        end)
+    end
+end
+
+local function ShowStackPreview(player)
+    if not ENABLE_PREVIEW or not player or not player:IsValid() then return end
+    
+    local x, y, z = player.Transform:GetWorldPosition()
+    local items = TheSim:FindEntities(x, y, z, STACK_RADIUS, {"_inventoryitem"}, {"INLIMBO", "NOCLICK"})
+    
+    local stackable_count = 0
+    for _, item in ipairs(items) do
+        if item and item:IsValid() and item.components and item.components.stackable then
+            stackable_count = stackable_count + 1
+        end
+    end
+    
+    if stackable_count > 5 and player.components.talker then
+        player.components.talker:Say("附近有 " .. stackable_count .. " 个可堆叠物品")
+    end
+end
+
+local function DoEmote(player)
+    if not ENABLE_EMOTE or not player or not player:IsValid() then return end
+    
+    local emotes = {"happy", "pose", "loop_sit", "loop_laugh"}
+    local emote = emotes[math.random(#emotes)]
+    
+    if player.components.playercontroller then
+        player.components.playercontroller:DoEmote(emote)
+    end
+end
+
+local function AutoPickupItem(player, item)
+    if not ENABLE_AUTO_PICKUP or not player or not player:IsValid() or not item or not item:IsValid() then
+        return false
+    end
+    
+    if not item.components or not item.components.stackable or not item.components.inventoryitem then
+        return false
+    end
+    
+    local stacksize = item.components.stackable.stacksize
+    if stacksize < PICKUP_THRESHOLD then
+        return false
+    end
+    
+    local should_pickup = false
+    if PICKUP_MODE == "all" then
+        should_pickup = true
+    elseif PICKUP_MODE == "rare" then
+        should_pickup = RARE_ITEMS_LOOKUP[item.prefab] == true
+    elseif PICKUP_MODE == "basic" then
+        should_pickup = BASIC_RESOURCES_LOOKUP[item.prefab] == true
+    end
+    
+    if should_pickup and player.components.inventory then
+        if not player.components.inventory:IsFull() then
+            player.components.inventory:GiveItem(item)
+            return true
+        end
+    end
+    
+    return false
+end
+
 local function PlayStackSound(player)
     if not ENABLE_SOUND or not player or not player:IsValid() then return end
     
@@ -191,7 +404,34 @@ local function CheckAchievements()
         if stack_count >= milestone and not announced_milestones[milestone] then
             announced_milestones[milestone] = true
             AnnounceToPlayers(" 堆叠成就达成：" .. milestone .. "次堆叠！")
+            
+            if ENABLE_FIREWORKS then
+                for _, player in ipairs(AllPlayers) do
+                    if player and player:IsValid() then
+                        LaunchFireworks(player)
+                    end
+                end
+            end
         end
+    end
+end
+
+local function AnnounceLeaderboard()
+    if not ENABLE_LEADERBOARD then return end
+    
+    local sorted = {}
+    for userid, stat in pairs(player_stats) do
+        table.insert(sorted, {name = stat.name, count = stat.count})
+    end
+    
+    table.sort(sorted, function(a, b) return a.count > b.count end)
+    
+    if #sorted > 0 then
+        local msg = " 堆叠排行榜："
+        for i = 1, math.min(3, #sorted) do
+            msg = msg .. " " .. i .. "." .. sorted[i].name .. "(" .. sorted[i].count .. ")"
+        end
+        AnnounceToPlayers(msg)
     end
 end
 
@@ -314,7 +554,20 @@ local function EnhancedStackItems()
                                                     stack_count = stack_count + 1
                                                     total_items_stacked = total_items_stacked + (new_size - old_size)
                                                     
+                                                    local stat = GetPlayerStat(player)
+                                                    if stat then
+                                                        stat.count = stat.count + 1
+                                                    end
+                                                    
+                                                    UpdateCombo()
                                                     PlayStackSound(player)
+                                                    GiveBlessing(player)
+                                                    
+                                                    if math.random() < 0.1 then
+                                                        DoEmote(player)
+                                                    end
+                                                    
+                                                    AutoPickupItem(player, target)
                                                     
                                                     if ENABLE_ACHIEVEMENTS then
                                                         CheckAchievements()
@@ -338,7 +591,20 @@ local function EnhancedStackItems()
                                             stack_count = stack_count + 1
                                             total_items_stacked = total_items_stacked + (new_size - old_size)
                                             
+                                            local stat = GetPlayerStat(player)
+                                            if stat then
+                                                stat.count = stat.count + 1
+                                            end
+                                            
+                                            UpdateCombo()
                                             PlayStackSound(player)
+                                            GiveBlessing(player)
+                                            
+                                            if math.random() < 0.1 then
+                                                DoEmote(player)
+                                            end
+                                            
+                                            AutoPickupItem(player, target)
                                             
                                             if ENABLE_ACHIEVEMENTS then
                                                 CheckAchievements()
@@ -371,6 +637,20 @@ AddSimPostInit(function()
                 end)
             end
         end
+    end
+    
+    if ENABLE_PREVIEW then
+        for _, player in ipairs(AllPlayers) do
+            if player and player:IsValid() then
+                player:DoPeriodicTask(30, function()
+                    ShowStackPreview(player)
+                end)
+            end
+        end
+    end
+    
+    if ENABLE_LEADERBOARD then
+        TheWorld:DoPeriodicTask(LEADERBOARD_INTERVAL * 60, AnnounceLeaderboard)
     end
     
     TheWorld:DoTaskInTime(START_DELAY, function()
