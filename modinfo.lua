@@ -102,7 +102,7 @@ local config_labels = {
     qq_group = is_chinese and "Q群:1042944194 欢迎饥荒联机交流" or "QQ Group:1042944194 Welcome to DST discussion",
     thanks = is_chinese and "感谢您的大力支持！" or "Thank you for your support!",
     
-    unstable_features = is_chinese and "========== 不稳定功能 ==========" or "========== Unstable Features ==========",
+    unstable_features = is_chinese and "====== ⚠️超级不稳定功能 ======" or "========== Unstable Features ==========",
     unstable_warning = is_chinese and " 以下功能为实验性功能，默认关闭" or " Experimental features, disabled by default",
     
     enable_sound = is_chinese and "启用堆叠音效" or "Enable Stack Sound",
@@ -182,6 +182,43 @@ local config_labels = {
     
     enable_emote = is_chinese and "启用堆叠表情" or "Enable Stack Emote",
     enable_emote_hover = is_chinese and "堆叠时玩家做表情动作" or "Player performs emote when stacking",
+    
+    enable_rage = is_chinese and "启用狂暴模式" or "Enable Rage Mode",
+    enable_rage_hover = is_chinese and "连续堆叠进入狂暴状态" or "Enter rage mode with consecutive stacks",
+    
+    rage_threshold = is_chinese and "狂暴阈值" or "Rage Threshold",
+    rage_threshold_hover = is_chinese and "多少次连击触发狂暴" or "How many combos to trigger rage",
+    
+    enable_heal = is_chinese and "启用堆叠治疗" or "Enable Stack Healing",
+    enable_heal_hover = is_chinese and "堆叠时恢复生命/饥饿/理智" or "Restore health/hunger/sanity when stacking",
+    
+    heal_type = is_chinese and "治疗类型" or "Heal Type",
+    heal_type_hover = is_chinese and "选择恢复哪种属性" or "Choose which attribute to restore",
+    heal_health = is_chinese and "生命" or "Health",
+    heal_hunger = is_chinese and "饥饿" or "Hunger",
+    heal_sanity = is_chinese and "理智" or "Sanity",
+    heal_random = is_chinese and "随机" or "Random",
+    
+    heal_amount = is_chinese and "治疗量" or "Heal Amount",
+    heal_amount_hover = is_chinese and "每次恢复多少" or "How much to restore each time",
+    
+    enable_shield = is_chinese and "启用堆叠护盾" or "Enable Stack Shield",
+    enable_shield_hover = is_chinese and "堆叠时获得临时护盾" or "Get temporary shield when stacking",
+    
+    shield_amount = is_chinese and "护盾值" or "Shield Amount",
+    shield_amount_hover = is_chinese and "护盾可以吸收多少伤害" or "How much damage shield can absorb",
+    
+    enable_aura = is_chinese and "启用堆叠光环" or "Enable Stack Aura",
+    enable_aura_hover = is_chinese and "堆叠时给附近队友加buff" or "Give buff to nearby teammates when stacking",
+    
+    aura_range = is_chinese and "光环范围" or "Aura Range",
+    aura_range_hover = is_chinese and "光环影响范围" or "Range of aura effect",
+    
+    enable_lucky = is_chinese and "启用堆叠幸运" or "Enable Stack Lucky",
+    enable_lucky_hover = is_chinese and "堆叠后提升掉落品质" or "Improve drop quality after stacking",
+    
+    lucky_duration = is_chinese and "幸运持续时间" or "Lucky Duration",
+    lucky_duration_hover = is_chinese and "幸运效果持续多久" or "How long lucky effect lasts",
     
     enable_auto_pickup = is_chinese and "启用自动拾取" or "Enable Auto Pickup",
     enable_auto_pickup_hover = is_chinese and "堆叠后自动将物品放入背包" or "Automatically pickup items after stacking",
@@ -520,6 +557,126 @@ configuration_options = {
             {description = config_labels.disable, data = false},
         },
         default = false,
+    },
+    {
+        name = "ENABLE_RAGE",
+        label = config_labels.enable_rage,
+        hover = config_labels.enable_rage_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "RAGE_THRESHOLD",
+        label = config_labels.rage_threshold,
+        hover = config_labels.rage_threshold_hover,
+        options = {
+            {description = "5", data = 5},
+            {description = "10", data = 10},
+            {description = "15", data = 15},
+            {description = "20", data = 20},
+        },
+        default = 10,
+    },
+    {
+        name = "ENABLE_HEAL",
+        label = config_labels.enable_heal,
+        hover = config_labels.enable_heal_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "HEAL_TYPE",
+        label = config_labels.heal_type,
+        hover = config_labels.heal_type_hover,
+        options = {
+            {description = config_labels.heal_health, data = "health"},
+            {description = config_labels.heal_hunger, data = "hunger"},
+            {description = config_labels.heal_sanity, data = "sanity"},
+            {description = config_labels.heal_random, data = "random"},
+        },
+        default = "random",
+    },
+    {
+        name = "HEAL_AMOUNT",
+        label = config_labels.heal_amount,
+        hover = config_labels.heal_amount_hover,
+        options = {
+            {description = "1", data = 1},
+            {description = "2", data = 2},
+            {description = "5", data = 5},
+            {description = "10", data = 10},
+        },
+        default = 2,
+    },
+    {
+        name = "ENABLE_SHIELD",
+        label = config_labels.enable_shield,
+        hover = config_labels.enable_shield_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "SHIELD_AMOUNT",
+        label = config_labels.shield_amount,
+        hover = config_labels.shield_amount_hover,
+        options = {
+            {description = "10", data = 10},
+            {description = "20", data = 20},
+            {description = "50", data = 50},
+            {description = "100", data = 100},
+        },
+        default = 20,
+    },
+    {
+        name = "ENABLE_AURA",
+        label = config_labels.enable_aura,
+        hover = config_labels.enable_aura_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "AURA_RANGE",
+        label = config_labels.aura_range,
+        hover = config_labels.aura_range_hover,
+        options = {
+            {description = config_labels.tiles(5), data = 5},
+            {description = config_labels.tiles(10), data = 10},
+            {description = config_labels.tiles(15), data = 15},
+        },
+        default = 10,
+    },
+    {
+        name = "ENABLE_LUCKY",
+        label = config_labels.enable_lucky,
+        hover = config_labels.enable_lucky_hover,
+        options = {
+            {description = config_labels.enable, data = true},
+            {description = config_labels.disable, data = false},
+        },
+        default = false,
+    },
+    {
+        name = "LUCKY_DURATION",
+        label = config_labels.lucky_duration,
+        hover = config_labels.lucky_duration_hover,
+        options = {
+            {description = config_labels.seconds(30), data = 30},
+            {description = config_labels.seconds(60), data = 60},
+            {description = config_labels.seconds(120), data = 120},
+        },
+        default = 60,
     },
     {
         name = "ENABLE_AUTO_PICKUP",

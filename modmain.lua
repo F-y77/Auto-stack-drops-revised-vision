@@ -33,6 +33,17 @@ local ENABLE_EMOTE = GetModConfigData("ENABLE_EMOTE")
 local ENABLE_AUTO_PICKUP = GetModConfigData("ENABLE_AUTO_PICKUP")
 local PICKUP_THRESHOLD = GetModConfigData("PICKUP_THRESHOLD")
 local PICKUP_MODE = GetModConfigData("PICKUP_MODE")
+local ENABLE_RAGE = GetModConfigData("ENABLE_RAGE")
+local RAGE_THRESHOLD = GetModConfigData("RAGE_THRESHOLD")
+local ENABLE_HEAL = GetModConfigData("ENABLE_HEAL")
+local HEAL_TYPE = GetModConfigData("HEAL_TYPE")
+local HEAL_AMOUNT = GetModConfigData("HEAL_AMOUNT")
+local ENABLE_SHIELD = GetModConfigData("ENABLE_SHIELD")
+local SHIELD_AMOUNT = GetModConfigData("SHIELD_AMOUNT")
+local ENABLE_AURA = GetModConfigData("ENABLE_AURA")
+local AURA_RANGE = GetModConfigData("AURA_RANGE")
+local ENABLE_LUCKY = GetModConfigData("ENABLE_LUCKY")
+local LUCKY_DURATION = GetModConfigData("LUCKY_DURATION")
 
 local stack_count = 0
 local total_items_stacked = 0
@@ -325,6 +336,151 @@ local function DoEmote(player)
     end
 end
 
+local function CheckRageMode(player)
+    if not ENABLE_RAGE or not player or not player:IsValid() then return end
+    
+    if combo_count >= RAGE_THRESHOLD then
+        if player.components.combat then
+            player.components.combat.damagemultiplier = (player.components.combat.damagemultiplier or 1) * 1.5
+            player:DoTaskInTime(10, function()
+                if player and player:IsValid() and player.components.combat then
+                    player.components.combat.damagemultiplier = (player.components.combat.damagemultiplier or 1) / 1.5
+                end
+            end)
+        end
+        
+        if player.components.locomotor then
+            player.components.locomotor:SetExternalSpeedMultiplier(player, "rage_mode", 1.3)
+            player:DoTaskInTime(10, function()
+                if player and player:IsValid() and player.components.locomotor then
+                    player.components.locomotor:RemoveExternalSpeedMultiplier(player, "rage_mode")
+                end
+            end)
+        end
+        
+        if player.components.talker then
+            player.components.talker:Say("[狂暴] 进入狂暴状态！")
+        end
+    end
+end
+
+local function HealPlayer(player)
+    if not ENABLE_HEAL or not player or not player:IsValid() then return end
+    
+    local heal_type = HEAL_TYPE
+    if heal_type == "random" then
+        local types = {"health", "hunger", "sanity"}
+        heal_type = types[math.random(#types)]
+    end
+    
+    if heal_type == "health" and player.components.health and not player.components.health:IsDead() then
+        player.components.health:DoDelta(HEAL_AMOUNT)
+        if player.components.talker then
+            player.components.talker:Say("[治疗] 生命+" .. HEAL_AMOUNT)
+        end
+    elseif heal_type == "hunger" and player.components.hunger then
+        player.components.hunger:DoDelta(HEAL_AMOUNT)
+        if player.components.talker then
+            player.components.talker:Say("[治疗] 饥饿+" .. HEAL_AMOUNT)
+        end
+    elseif heal_type == "sanity" and player.components.sanity then
+        player.components.sanity:DoDelta(HEAL_AMOUNT)
+        if player.components.talker then
+            player.components.talker:Say("[治疗] 理智+" .. HEAL_AMOUNT)
+        end
+    end
+end
+
+local function GiveShield(player)
+    if not ENABLE_SHIELD or not player or not player:IsValid() then return end
+    
+    if not player.stack_shield then
+        player.stack_shield = 0
+    end
+    
+    player.stack_shield = player.stack_shield + SHIELD_AMOUNT
+    
+    if player.components.talker then
+        player.components.talker:Say("[护盾] +" .. SHIELD_AMOUNT)
+    end
+    
+    if not player.shield_listener then
+        player.shield_listener = player:ListenForEvent("attacked", function(inst, data)
+            if inst.stack_shield and inst.stack_shield > 0 then
+                local damage = data and data.damage or 0
+                if damage > 0 then
+                    local absorbed = math.min(damage, inst.stack_shield)
+                    inst.stack_shield = inst.stack_shield - absorbed
+                    
+                    if data.attacker and data.attacker.components.combat then
+                        data.attacker.components.combat:GetAttacked(inst, 0)
+                    end
+                    
+                    if inst.components.talker then
+                        inst.components.talker:Say("[护盾] 吸收" .. absorbed .. "伤害")
+                    end
+                    
+                    if inst.stack_shield <= 0 then
+                        inst.stack_shield = 0
+                        if inst.components.talker then
+                            inst.components.talker:Say("[护盾] 护盾破碎")
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function ApplyAura(player)
+    if not ENABLE_AURA or not player or not player:IsValid() then return end
+    
+    local x, y, z = player.Transform:GetWorldPosition()
+    local nearby_players = TheSim:FindEntities(x, y, z, AURA_RANGE, {"player"})
+    
+    for _, nearby in ipairs(nearby_players) do
+        if nearby and nearby:IsValid() and nearby ~= player then
+            if nearby.components.locomotor then
+                nearby.components.locomotor:SetExternalSpeedMultiplier(nearby, "stack_aura", 1.15)
+                nearby:DoTaskInTime(5, function()
+                    if nearby and nearby:IsValid() and nearby.components.locomotor then
+                        nearby.components.locomotor:RemoveExternalSpeedMultiplier(nearby, "stack_aura")
+                    end
+                end)
+            end
+            
+            if nearby.components.talker then
+                nearby.components.talker:Say("[光环] 速度+15%")
+            end
+        end
+    end
+    
+    if player.components.talker then
+        player.components.talker:Say("[光环] 影响" .. (#nearby_players - 1) .. "名队友")
+    end
+end
+
+local function ApplyLucky(player)
+    if not ENABLE_LUCKY or not player or not player:IsValid() then return end
+    
+    if not player.stack_lucky_active then
+        player.stack_lucky_active = true
+        
+        if player.components.talker then
+            player.components.talker:Say("[幸运] 幸运效果激活")
+        end
+        
+        player:DoTaskInTime(LUCKY_DURATION, function()
+            if player and player:IsValid() then
+                player.stack_lucky_active = false
+                if player.components.talker then
+                    player.components.talker:Say("[幸运] 幸运效果结束")
+                end
+            end
+        end)
+    end
+end
+
 local function AutoPickupItem(player, item)
     if not ENABLE_AUTO_PICKUP or not player or not player:IsValid() or not item or not item:IsValid() then
         return false
@@ -562,6 +718,11 @@ local function EnhancedStackItems()
                                                     UpdateCombo()
                                                     PlayStackSound(player)
                                                     GiveBlessing(player)
+                                                    CheckRageMode(player)
+                                                    HealPlayer(player)
+                                                    GiveShield(player)
+                                                    ApplyAura(player)
+                                                    ApplyLucky(player)
                                                     
                                                     if math.random() < 0.1 then
                                                         DoEmote(player)
@@ -599,6 +760,11 @@ local function EnhancedStackItems()
                                             UpdateCombo()
                                             PlayStackSound(player)
                                             GiveBlessing(player)
+                                            CheckRageMode(player)
+                                            HealPlayer(player)
+                                            GiveShield(player)
+                                            ApplyAura(player)
+                                            ApplyLucky(player)
                                             
                                             if math.random() < 0.1 then
                                                 DoEmote(player)
